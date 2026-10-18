@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090d16" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  
+  <title>BipEstocastico - Temporizador de Treino</title>
+  <meta name="description" content="Temporizador de treino esportivo mobile-first para Android com alertas sonoros e táteis estocásticos, sintetizador Web Audio API e Screen Wake Lock." />
+  <meta property="og:title" content="BipEstocastico - Temporizador de Treino" />
+  <meta property="og:description" content="Temporizador de treino esportivo mobile-first para Android com alertas sonoros e táteis estocásticos, sintetizador Web Audio API e Screen Wake Lock." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <style>
+    /* Reset & Variáveis de Design Esportivo */
+    :root {
+      --bg-dark: #07090e;
+      --bg-surface: #101522;
+      --bg-surface-elevated: #182032;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(34, 197, 94, 0.35);
+      
+      --neon-green: #22c55e;
+      --neon-green-glow: rgba(34, 197, 94, 0.45);
+      --neon-green-dim: rgba(34, 197, 94, 0.12);
+      
+      --amber-warm: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.4);
+      --amber-dim: rgba(245, 158, 11, 0.12);
+      
+      --cyan-tech: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.35);
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      overflow-x: hidden;
+      overflow-y: auto;
+      touch-action: manipulation;
+    }
+
+    /* Fundo sutil esportivo */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      background-image: 
+        radial-gradient(circle at 50% 12%, rgba(34, 197, 94, 0.12) 0%, transparent 55%),
+        radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.06) 0%, transparent 45%);
+      padding: calc(var(--safe-top) + 14px) 16px calc(var(--safe-bottom) + 18px) 16px;
+    }
+
+    /* Flash visual global de bip */
+    #visualFlashOverlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0;
+      background: radial-gradient(circle at center, rgba(34, 197, 94, 0.28) 0%, rgba(34, 197, 94, 0.08) 70%, transparent 100%);
+      box-shadow: inset 0 0 80px rgba(34, 197, 94, 0.45);
+      transition: opacity 0.04s ease-out;
+    }
+
+    #visualFlashOverlay.flash-active {
+      opacity: 1;
+    }
+
+    /* Container Principal */
+    .app-container {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    /* Header Superior */
+    .header-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 4px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #22c55e, #10b981);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px var(--neon-green-glow);
+    }
+
+    .brand-icon-box svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: #07090e;
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand-subtitle {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--neon-green);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+      background: var(--bg-surface-elevated);
+      color: #fff;
+    }
+
+    .icon-btn.active-status {
+      color: var(--neon-green);
+      border-color: var(--border-highlight);
+      background: var(--neon-green-dim);
+    }
+
+    /* Banner Informativo de Status */
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      transition: all 0.25s ease;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--text-dim);
+      transition: all 0.25s ease;
+    }
+
+    .status-pill.running {
+      color: var(--neon-green);
+      background: var(--neon-green-dim);
+      border-color: var(--border-highlight);
+    }
+    .status-pill.running .status-dot {
+      background-color: var(--neon-green);
+      box-shadow: 0 0 10px var(--neon-green);
+      animation: pulseDot 1.4s infinite alternate;
+    }
+
+    .status-pill.paused {
+      color: var(--amber-warm);
+      background: var(--amber-dim);
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .status-pill.paused .status-dot {
+      background-color: var(--amber-warm);
+      box-shadow: 0 0 8px var(--amber-warm);
+    }
+
+    .status-pill.finished {
+      color: var(--cyan-tech);
+      background: rgba(6, 182, 212, 0.15);
+      border-color: rgba(6, 182, 212, 0.4);
+    }
+    .status-pill.finished .status-dot {
+      background-color: var(--cyan-tech);
+    }
+
+    @keyframes pulseDot {
+      0% { transform: scale(0.85); opacity: 0.7; }
+      100% { transform: scale(1.25); opacity: 1; }
+    }
+
+    /* Área Central do Timer */
+    .timer-center-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin: 8px 0;
+      width: 100%;
+    }
+
+    .timer-ring-container {
+      position: relative;
+      width: 270px;
+      height: 270px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .timer-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+      filter: drop-shadow(0 0 16px rgba(0, 0, 0, 0.5));
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.05);
+      stroke-width: 9;
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: var(--neon-green);
+      stroke-width: 9;
+      stroke-linecap: round;
+      stroke-dasharray: 785.4; /* 2 * PI * 125 */
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+      filter: drop-shadow(0 0 8px var(--neon-green-glow));
+    }
+
+    .ring-progress.paused {
+      stroke: var(--amber-warm);
+      filter: drop-shadow(0 0 8px var(--amber-glow));
+    }
+
+    /* Brilho Pulsante no bip */
+    .stochastic-pulse-ring {
+      position: absolute;
+      inset: 12px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      pointer-events: none;
+      transition: all 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .stochastic-pulse-ring.flash-active {
+      border-color: var(--neon-green);
+      box-shadow: 0 0 35px var(--neon-green-glow), inset 0 0 25px var(--neon-green-glow);
+      transform: scale(1.04);
+    }
+
+    .timer-digits-wrapper {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .timer-digits {
+      font-size: 3.8rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+      color: #ffffff;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      transition: transform 0.08s ease;
+    }
+
+    .timer-digits.bip-kick {
+      transform: scale(1.08);
+      color: #86efac;
+      text-shadow: 0 0 25px var(--neon-green);
+    }
+
+    .timer-sublabel {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* Card de Informações - Contador de Bipes */
+    .stochastic-badge-card {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .bip-counter-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sound-pulse-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--neon-green-dim);
+      border: 1px solid var(--border-highlight);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--neon-green);
+      transition: all 0.15s ease;
+    }
+
+    .sound-pulse-icon.pulse-now {
+      background: var(--neon-green);
+      color: #000;
+      transform: scale(1.15);
+      box-shadow: 0 0 20px var(--neon-green);
+    }
+
+    .bip-count-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+
+    .bip-count-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Seção de Controles Principais Táteis */
+    .controls-panel {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .primary-action-btn {
+      width: 100%;
+      height: 68px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .primary-action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #051b0d;
+      box-shadow: 0 8px 26px var(--neon-green-glow), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-pause {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #211202;
+      box-shadow: 0 8px 26px var(--amber-glow), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .secondary-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .secondary-btn {
+      height: 52px;
+      border-radius: 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .secondary-btn:active {
+      transform: scale(0.96);
+      background: var(--bg-surface-elevated);
+    }
+
+    .secondary-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2.2;
+    }
+
+    /* Barra de Features: WakeLock & Volume Test */
+    .telemetry-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .feature-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      transition: background 0.15s ease;
+    }
+
+    .feature-tag:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .feature-tag.active {
+      color: var(--neon-green);
+    }
+
+    .feature-tag svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Modal / Drawer de Configurações */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer-content {
+      width: 100%;
+      max-width: 480px;
+      background: #111726;
+      border-top-left-radius: 28px;
+      border-top-right-radius: 28px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 20px 20px calc(var(--safe-bottom) + 24px) 20px;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .drawer-overlay.open .drawer-content {
+      transform: translateY(0);
+    }
+
+    .drawer-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      margin: 0 auto 16px auto;
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .drawer-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .drawer-close-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: var(--text-muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .config-section {
+      margin-bottom: 20px;
+    }
+
+    .config-section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--neon-green);
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Presets Rápidos */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .preset-chip {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .preset-chip:active, .preset-chip.active {
+      border-color: var(--neon-green);
+      background: var(--neon-green-dim);
+    }
+
+    .preset-chip-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .preset-chip-desc {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* Controles de Minutos / Segundos */
+    .time-stepper-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stepper-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stepper-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .stepper-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .step-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .step-btn:active {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .stepper-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Sliders de Intervalo Estocástico nos Ajustes */
+    .stochastic-sliders-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .slider-header span:first-child {
+      color: var(--text-muted);
+    }
+
+    .slider-header span:last-child {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.12);
+      appearance: none;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-green-glow);
+    }
+
+    .save-config-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: 16px;
+      background: var(--neon-green);
+      color: #051b0d;
+      font-weight: 800;
+      font-size: 1rem;
+      border: none;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    /* Modal de Conclusão de Treino */
+    .finished-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 1050;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .finished-modal.show {
+      display: flex;
+      animation: modalFadeIn 0.3s ease-out forwards;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .finished-card {
+      background: #111827;
+      border: 1px solid var(--border-highlight);
+      border-radius: 26px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(34, 197, 94, 0.2);
+    }
+
+    .finished-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: var(--neon-green-dim);
+      border: 2px solid var(--neon-green);
+      color: var(--neon-green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px auto;
+      box-shadow: 0 0 25px var(--neon-green-glow);
+    }
+
+    .finished-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .finished-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .stats-summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 10px 14px;
+    }
+
+    .stat-label {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .btn-finish-restart {
+      width: 100%;
+      height: 54px;
+      border-radius: 16px;
+      background: var(--neon-green);
+      color: #062310;
+      font-weight: 800;
+      font-size: 1.05rem;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Overlay visual de flash sincronizado com o BIP BIP -->
+  <div id="visualFlashOverlay"></div>
+
+  <!-- Container App Mobile-First -->
+  <main class="app-container">
+    
+    <!-- Top Header -->
+    <header class="header-bar">
+      <div class="brand-group">
+        <div class="brand-icon-box">
+          <!-- Raio / Som Ícone Esportivo -->
+          <svg viewBox="0 0 24 24">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">BipEstocástico</h1>
+          <div class="brand-subtitle">Alerta Reativo • Mobile</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Botão Testar Áudio -->
+        <button class="icon-btn" id="btnTestAudio" title="Testar som do bip" aria-label="Testar som">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+        </button>
+
+        <!-- Botão Abrir Ajustes -->
+        <button class="icon-btn" id="btnOpenSettings" title="Configurações do treino" aria-label="Ajustes">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Pílula de Status do Treino -->
+    <div class="status-pill" id="statusPill">
+      <span class="status-dot"></span>
+      <span id="statusText">Pronto para Iniciar</span>
+    </div>
+
+    <!-- Timer Circular Central -->
+    <section class="timer-center-area">
+      <div class="timer-ring-container">
+        <svg class="timer-svg" viewBox="0 0 280 280">
+          <circle class="ring-bg" cx="140" cy="140" r="125"></circle>
+          <circle class="ring-progress" id="ringProgress" cx="140" cy="140" r="125"></circle>
+        </svg>
+
+        <!-- Anel que pisca no Bip -->
+        <div class="stochastic-pulse-ring" id="stochasticPulseRing"></div>
+
+        <!-- Dígitos MM:SS -->
+        <div class="timer-digits-wrapper">
+          <div class="timer-digits" id="timerDisplay">06:00</div>
+          <div class="timer-sublabel" id="timerSublabel">Tempo Restante</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Card de Informações - Contador de Bipes (Sem revelar a faixa de intervalo estocástico) -->
+    <section class="stochastic-badge-card">
+      <div class="bip-counter-group">
+        <div class="sound-pulse-icon" id="bipPulseIcon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12h3l3-8 4 16 3-8h7"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="bip-count-value" id="beepCounter">0</div>
+          <div class="bip-count-label">Bipes Disparados</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Painel de Controles Principais (Touch Targets Grandes) -->
+    <section class="controls-panel">
+      <!-- Botão Principal Alternável (Iniciar / Pausar) -->
+      <button class="primary-action-btn btn-start" id="btnMainAction">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        <span id="btnMainActionText">INICIAR TREINO</span>
+      </button>
+
+      <!-- Botões Secundários: Resetar & Configurar -->
+      <div class="secondary-controls">
+        <button class="secondary-btn" id="btnReset">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          Resetar
+        </button>
+
+        <button class="secondary-btn" id="btnQuickConfig">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+          Ajustes
+        </button>
+      </div>
+    </section>
+
+    <!-- Barra Inferior de Diagnóstico & WakeLock -->
+    <footer class="telemetry-bar">
+      <div class="feature-tag active" id="wakeLockTag" title="Mantém a tela acesa durante o exercício">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <span id="wakeLockStatusText">Wake Lock: Pronto</span>
+      </div>
+
+      <div class="feature-tag" id="vibrateTag" title="Vibração tátil">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 8v8"></path>
+          <path d="M22 8v8"></path>
+          <rect x="6" y="4" width="12" height="16" rx="2"></rect>
+        </svg>
+        <span>Vibração Ativa</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Drawer de Ajustes & Configuração -->
+  <div class="drawer-overlay" id="drawerSettings">
+    <div class="drawer-content">
+      <div class="drawer-handle"></div>
+      
+      <div class="drawer-header">
+        <h2 class="drawer-title">Configurar Treino</h2>
+        <button class="drawer-close-btn" id="btnCloseSettings">✕</button>
+      </div>
+
+      <!-- Presets Esportivos -->
+      <div class="config-section">
+        <div class="config-section-title">
+          <span>⚡ Presets Rápidos</span>
+        </div>
+        <div class="preset-grid">
+          <div class="preset-chip active" data-total-min="6" data-total-sec="0" data-min="5" data-max="22">
+            <div class="preset-chip-title">HIIT Estocástico</div>
+            <div class="preset-chip-desc">6 min • aleatório</div>
+          </div>
+          <div class="preset-chip" data-total-min="3" data-total-sec="0" data-min="4" data-max="15">
+            <div class="preset-chip-title">Round de Boxe</div>
+            <div class="preset-chip-desc">3 min • aleatório</div>
+          </div>
+          <div class="preset-chip" data-total-min="8" data-total-sec="0" data-min="3" data-max="10">
+            <div class="preset-chip-title">Reflexo & Agilidade</div>
+            <div class="preset-chip-desc">8 min • aleatório</div>
+          </div>
+          <div class="preset-chip" data-total-min="2" data-total-sec="0" data-min="8" data-max="20">
+            <div class="preset-chip-title">Isometria / Core</div>
+            <div class="preset-chip-desc">2 min • aleatório</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tempo Total de Treino -->
+      <div class="config-section">
+        <div class="config-section-title">
+          <span>⏱️ Tempo Total de Treino</span>
+        </div>
+        <div class="time-stepper-grid">
+          <!-- Minutos -->
+          <div class="stepper-card">
+            <span class="stepper-label">Minutos</span>
+            <div class="stepper-controls">
+              <button class="step-btn" id="btnDecMin">-</button>
+              <span class="stepper-val" id="displayConfigMin">06</span>
+              <button class="step-btn" id="btnIncMin">+</button>
+            </div>
+          </div>
+          <!-- Segundos -->
+          <div class="stepper-card">
+            <span class="stepper-label">Segundos</span>
+            <div class="stepper-controls">
+              <button class="step-btn" id="btnDecSec">-</button>
+              <span class="stepper-val" id="displayConfigSec">00</span>
+              <button class="step-btn" id="btnIncSec">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Intervalos Estocásticos (Mínimo e Máximo) -->
+      <div class="config-section">
+        <div class="config-section-title">
+          <span>🎲 Intervalos de Bip Aleatório</span>
+        </div>
+        <div class="stochastic-sliders-card">
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>Intervalo Mínimo (MIN):</span>
+              <span id="labelMinVal">5s</span>
+            </div>
+            <input type="range" id="inputMinSec" min="2" max="60" value="5" step="1" />
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>Intervalo Máximo (MAX):</span>
+              <span id="labelMaxVal">22s</span>
+            </div>
+            <input type="range" id="inputMaxSec" min="3" max="90" value="22" step="1" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Botão Aplicar -->
+      <button class="save-config-btn" id="btnApplySettings">SALVAR CONFIGURAÇÃO</button>
+    </div>
+  </div>
+
+  <!-- Modal de Treino Concluído -->
+  <div class="finished-modal" id="finishedModal">
+    <div class="finished-card">
+      <div class="finished-icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <h2 class="finished-title">Treino Concluído!</h2>
+      <p class="finished-subtitle">Excelente trabalho! O tempo total planejado foi finalizado.</p>
+
+      <div class="stats-summary-grid">
+        <div class="stat-box">
+          <div class="stat-label">Duração</div>
+          <div class="stat-val" id="finishStatDuration">06:00</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Total de Bipes</div>
+          <div class="stat-val" id="finishStatBips">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Intervalo Médio</div>
+          <div class="stat-val" id="finishStatAvg">0.0s</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Estilo</div>
+          <div class="stat-val">Estocástico</div>
+        </div>
+      </div>
+
+      <button class="btn-finish-restart" id="btnFinishRestart">NOVO TREINO</button>
+    </div>
+  </div>
+
+  <!-- Script Lógico Autocontido (Zero Dependências) -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ============================================================
+         1. SISTEMA DE ÁUDIO WEB AUDIO API (Sintetizador Puro)
+         ============================================================ */
+      let audioCtx = null;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      /**
+       * Toca um pulso sonoro sintetizado individual
+       * @param {number} freq - Frequência em Hz (ex: 880Hz)
+       * @param {number} durationMs - Duração em milissegundos (ex: 75ms)
+       * @param {number} delayMs - Atraso de início a partir de agora
+       * @param {'sine' | 'square' | 'triangle'} type - Tipo de onda
+       */
+      function playTone(freq, durationMs, delayMs = 0, type = 'sine', volume = 0.85) {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const startTime = ctx.currentTime + (delayMs / 1000);
+        const stopTime = startTime + (durationMs / 1000);
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, startTime);
+
+        // Envelope com ataque e decaimento suaves para evitar "pop/click"
+        const attackTime = 0.005; // 5ms
+        const releaseTime = 0.008; // 8ms
+
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(volume, startTime + attackTime);
+        gain.gain.setValueAtTime(volume, Math.max(startTime + attackTime, stopTime - releaseTime));
+        gain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(startTime);
+        osc.stop(stopTime);
+      }
+
+      /**
+       * Alerta sonoro Estocástico BIP BIP padrão:
+       * - Frequência ~880Hz
+       * - Dois pulsos de 75ms com intervalo de 40ms entre eles
+       */
+      function playBipBip() {
+        // Primeiro bip: 0ms até 75ms
+        playTone(880, 75, 0, 'sine', 0.9);
+        // Segundo bip: após 75ms + 40ms de silêncio = 115ms
+        playTone(880, 75, 115, 'sine', 0.9);
+      }
+
+      /**
+       * Alerta sonoro de Conclusão de Treino:
+       * Três bipes contínuos e triunfantes
+       */
+      function playFinishChime() {
+        // Três bipes marcantes em sequência ascendente
+        playTone(587.33, 130, 0, 'sine', 0.85);      // Ré 5
+        playTone(739.99, 130, 160, 'sine', 0.85);    // Fá# 5
+        playTone(880.00, 320, 320, 'sine', 1.0);     // Lá 5 sustentado
+      }
+
+      /* ============================================================
+         2. SCREEN WAKE LOCK & VIBRAÇÃO HÁPTICA
+         ============================================================ */
+      let wakeLockSentinel = null;
+
+      async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+          try {
+            wakeLockSentinel = await navigator.wakeLock.request('screen');
+            updateWakeLockUI(true);
+            wakeLockSentinel.addEventListener('release', () => {
+              updateWakeLockUI(false);
+            });
+          } catch (err) {
+            console.warn('Wake Lock request falhou:', err);
+            updateWakeLockUI(false);
+          }
+        } else {
+          updateWakeLockUI(false, 'Não Suportado');
+        }
+      }
+
+      function releaseWakeLock() {
+        if (wakeLockSentinel) {
+          wakeLockSentinel.release().catch(() => {});
+          wakeLockSentinel = null;
+        }
+        updateWakeLockUI(false);
+      }
+
+      function updateWakeLockUI(isActive, customMsg) {
+        const tag = document.getElementById('wakeLockTag');
+        const text = document.getElementById('wakeLockStatusText');
+        if (customMsg) {
+          text.textContent = `Wake Lock: ${customMsg}`;
+          tag.classList.remove('active');
+        } else if (isActive) {
+          text.textContent = 'Tela Ativa: Ligado';
+          tag.classList.add('active');
+        } else {
+          text.textContent = 'Tela Ativa: Pausado';
+          tag.classList.remove('active');
+        }
+      }
+
+      // Reativar Wake Lock se o usuário minimizar e voltar para o app
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && timerState.isRunning) {
+          requestWakeLock();
+        }
+      });
+
+      function triggerHapticBip() {
+        if ('vibrate' in navigator) {
+          try {
+            // Vibração sincronizada: 75ms vibra, 40ms pausa, 75ms vibra
+            navigator.vibrate([75, 40, 75]);
+          } catch (e) {}
+        }
+      }
+
+      function triggerHapticFinish() {
+        if ('vibrate' in navigator) {
+          try {
+            navigator.vibrate([150, 80, 150, 80, 350]);
+          } catch (e) {}
+        }
+      }
+
+      /* ============================================================
+         3. ESTADO DA APLICAÇÃO E CONFIGURAÇÕES
+         ============================================================ */
+      const config = {
+        totalSeconds: 360, // 6 minutos padrão
+        minBipSec: 5,      // 5s padrão
+        maxBipSec: 22      // 22s padrão
+      };
+
+      // Carregar preferências salvas se houver
+      try {
+        const saved = localStorage.getItem('bip_estocastico_cfg');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.totalSeconds >= 10) config.totalSeconds = parsed.totalSeconds;
+          if (parsed.minBipSec >= 2) config.minBipSec = parsed.minBipSec;
+          if (parsed.maxBipSec > config.minBipSec) config.maxBipSec = parsed.maxBipSec;
+        }
+      } catch (e) {}
+
+      const timerState = {
+        isRunning: false,
+        isPaused: false,
+        totalDuration: config.totalSeconds,
+        remainingSeconds: config.totalSeconds,
+        lastTimestamp: null,
+        animFrameId: null,
+        
+        // Estocástico
+        nextBipCountdown: 0,
+        beepCount: 0,
+        beepIntervalsHistory: [],
+        
+        // Timeout para flash
+        flashTimeoutId: null
+      };
+
+      /* ============================================================
+         4. ELEMENTOS DA INTERFACE (DOM)
+         ============================================================ */
+      const timerDisplay = document.getElementById('timerDisplay');
+      const timerSublabel = document.getElementById('timerSublabel');
+      const ringProgress = document.getElementById('ringProgress');
+      const stochasticPulseRing = document.getElementById('stochasticPulseRing');
+      const visualFlashOverlay = document.getElementById('visualFlashOverlay');
+      const bipPulseIcon = document.getElementById('bipPulseIcon');
+      const beepCounter = document.getElementById('beepCounter');
+      const statusPill = document.getElementById('statusPill');
+      const statusText = document.getElementById('statusText');
+      const btnMainAction = document.getElementById('btnMainAction');
+      const btnReset = document.getElementById('btnReset');
+      const btnQuickConfig = document.getElementById('btnQuickConfig');
+      const btnOpenSettings = document.getElementById('btnOpenSettings');
+      const btnCloseSettings = document.getElementById('btnCloseSettings');
+      const btnTestAudio = document.getElementById('btnTestAudio');
+      const drawerSettings = document.getElementById('drawerSettings');
+      const btnApplySettings = document.getElementById('btnApplySettings');
+
+      // Config Elements
+      const displayConfigMin = document.getElementById('displayConfigMin');
+      const displayConfigSec = document.getElementById('displayConfigSec');
+      const btnDecMin = document.getElementById('btnDecMin');
+      const btnIncMin = document.getElementById('btnIncMin');
+      const btnDecSec = document.getElementById('btnDecSec');
+      const btnIncSec = document.getElementById('btnIncSec');
+      const inputMinSec = document.getElementById('inputMinSec');
+      const inputMaxSec = document.getElementById('inputMaxSec');
+      const labelMinVal = document.getElementById('labelMinVal');
+      const labelMaxVal = document.getElementById('labelMaxVal');
+
+      // Modal Conclusão
+      const finishedModal = document.getElementById('finishedModal');
+      const btnFinishRestart = document.getElementById('btnFinishRestart');
+      const finishStatDuration = document.getElementById('finishStatDuration');
+      const finishStatBips = document.getElementById('finishStatBips');
+      const finishStatAvg = document.getElementById('finishStatAvg');
+
+      /* Comprimento do círculo SVG: 2 * PI * 125 ≈ 785.4 */
+      const RING_CIRCUMFERENCE = 785.4;
+
+      /* ============================================================
+         5. FUNÇÕES DE UTILIDADE E FORMATAÇÃO
+         ============================================================ */
+      function formatTime(seconds) {
+        const sec = Math.max(0, Math.ceil(seconds));
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function updateTimerDisplay() {
+        timerDisplay.textContent = formatTime(timerState.remainingSeconds);
+        
+        // Atualiza progresso circular
+        const fraction = Math.max(0, timerState.remainingSeconds / timerState.totalDuration);
+        const offset = RING_CIRCUMFERENCE * (1 - fraction);
+        ringProgress.style.strokeDashoffset = offset;
+      }
+
+      function getRandomStochasticInterval() {
+        const min = config.minBipSec;
+        const max = config.maxBipSec;
+        // Sorteia número em segundos com precisão de décimos
+        const raw = min + Math.random() * (max - min);
+        return Math.round(raw * 10) / 10;
+      }
+
+      function scheduleNextStochasticBip() {
+        const interval = getRandomStochasticInterval();
+        timerState.nextBipCountdown = interval;
+        timerState.beepIntervalsHistory.push(interval);
+      }
+
+      /* ============================================================
+         6. EFEITO VISUAL SINCRONIZADO COM O BIP
+         ============================================================ */
+      function triggerVisualBipFlash() {
+        // Flash na tela inteira
+        visualFlashOverlay.classList.add('flash-active');
+        stochasticPulseRing.classList.add('flash-active');
+        bipPulseIcon.classList.add('pulse-now');
+        timerDisplay.classList.add('bip-kick');
+
+        // Primeiro pulso de 80ms
+        clearTimeout(timerState.flashTimeoutId);
+        timerState.flashTimeoutId = setTimeout(() => {
+          visualFlashOverlay.classList.remove('flash-active');
+          stochasticPulseRing.classList.remove('flash-active');
+
+          // Segundo pulso suave após 35ms (sincronizado com o 2º bip)
+          setTimeout(() => {
+            visualFlashOverlay.classList.add('flash-active');
+            stochasticPulseRing.classList.add('flash-active');
+
+            setTimeout(() => {
+              visualFlashOverlay.classList.remove('flash-active');
+              stochasticPulseRing.classList.remove('flash-active');
+              bipPulseIcon.classList.remove('pulse-now');
+              timerDisplay.classList.remove('bip-kick');
+            }, 85);
+          }, 35);
+        }, 80);
+      }
+
+      /* ============================================================
+         7. LOOP PRINCIPAL DE TEMPORIZAÇÃO (Delta Time com rAF)
+         ============================================================ */
+      function timerLoop(currentTimestamp) {
+        if (!timerState.isRunning || timerState.isPaused) return;
+
+        if (timerState.lastTimestamp === null) {
+          timerState.lastTimestamp = currentTimestamp;
+        }
+
+        const deltaSeconds = (currentTimestamp - timerState.lastTimestamp) / 1000;
+        timerState.lastTimestamp = currentTimestamp;
+
+        // Subtrai o tempo total
+        timerState.remainingSeconds -= deltaSeconds;
+
+        // Subtrai contagem regressiva do bip estocástico
+        timerState.nextBipCountdown -= deltaSeconds;
+
+        if (timerState.nextBipCountdown <= 0 && timerState.remainingSeconds > 0.5) {
+          // Bip estocástico disparado!
+          timerState.beepCount++;
+          beepCounter.textContent = timerState.beepCount;
+
+          playBipBip();
+          triggerHapticBip();
+          triggerVisualBipFlash();
+
+          scheduleNextStochasticBip();
+        }
+
+        // Checagem de conclusão do treino
+        if (timerState.remainingSeconds <= 0) {
+          timerState.remainingSeconds = 0;
+          updateTimerDisplay();
+          finishWorkout();
+          return;
+        }
+
+        updateTimerDisplay();
+        timerState.animFrameId = requestAnimationFrame(timerLoop);
+      }
+
+      /* ============================================================
+         8. AÇÕES DE CONTROLE: INICIAR, PAUSAR, RESETAR, FINALIZAR
+         ============================================================ */
+      function startTimer() {
+        // Desbloqueia Web Audio context na primeira interação
+        getAudioContext();
+
+        timerState.isRunning = true;
+        timerState.isPaused = false;
+        timerState.lastTimestamp = null;
+
+        // Se estiver começando do zero, sorteia o primeiro intervalo
+        if (timerState.nextBipCountdown <= 0) {
+          scheduleNextStochasticBip();
+        }
+
+        requestWakeLock();
+
+        // Atualização da UI
+        statusPill.className = 'status-pill running';
+        statusText.textContent = 'Treino em Andamento';
+        timerSublabel.textContent = 'Treino Ativo';
+        ringProgress.classList.remove('paused');
+
+        btnMainAction.className = 'primary-action-btn btn-pause';
+        btnMainAction.innerHTML = `
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+            <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+          </svg>
+          <span>PAUSAR TREINO</span>
+        `;
+
+        cancelAnimationFrame(timerState.animFrameId);
+        timerState.animFrameId = requestAnimationFrame(timerLoop);
+      }
+
+      function pauseTimer() {
+        timerState.isPaused = true;
+        cancelAnimationFrame(timerState.animFrameId);
+
+        releaseWakeLock();
+
+        // Atualização da UI
+        statusPill.className = 'status-pill paused';
+        statusText.textContent = 'Treino Pausado';
+        timerSublabel.textContent = 'Pausado';
+        ringProgress.classList.add('paused');
+
+        btnMainAction.className = 'primary-action-btn btn-start';
+        btnMainAction.innerHTML = `
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>CONTINUAR TREINO</span>
+        `;
+      }
+
+      function resetTimer() {
+        cancelAnimationFrame(timerState.animFrameId);
+        timerState.isRunning = false;
+        timerState.isPaused = false;
+        timerState.lastTimestamp = null;
+        timerState.totalDuration = config.totalSeconds;
+        timerState.remainingSeconds = config.totalSeconds;
+        timerState.nextBipCountdown = 0;
+        timerState.beepCount = 0;
+        timerState.beepIntervalsHistory = [];
+
+        beepCounter.textContent = '0';
+        updateTimerDisplay();
+
+        releaseWakeLock();
+
+        // Limpa classes de animação se houver
+        visualFlashOverlay.classList.remove('flash-active');
+        stochasticPulseRing.classList.remove('flash-active');
+        bipPulseIcon.classList.remove('pulse-now');
+        ringProgress.classList.remove('paused');
+
+        statusPill.className = 'status-pill';
+        statusText.textContent = 'Pronto para Iniciar';
+        timerSublabel.textContent = 'Tempo Restante';
+
+        btnMainAction.className = 'primary-action-btn btn-start';
+        btnMainAction.innerHTML = `
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>INICIAR TREINO</span>
+        `;
+      }
+
+      function finishWorkout() {
+        cancelAnimationFrame(timerState.animFrameId);
+        timerState.isRunning = false;
+        timerState.isPaused = false;
+
+        releaseWakeLock();
+        playFinishChime();
+        triggerHapticFinish();
+
+        statusPill.className = 'status-pill finished';
+        statusText.textContent = 'Treino Concluído!';
+        timerSublabel.textContent = 'Finalizado';
+
+        btnMainAction.className = 'primary-action-btn btn-start';
+        btnMainAction.innerHTML = `
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>INICIAR NOVO TREINO</span>
+        `;
+
+        // Preenche dados do modal de conclusão
+        finishStatDuration.textContent = formatTime(timerState.totalDuration);
+        finishStatBips.textContent = timerState.beepCount;
+
+        const history = timerState.beepIntervalsHistory;
+        const avg = history.length > 0
+          ? (history.reduce((a, b) => a + b, 0) / history.length).toFixed(1)
+          : '0.0';
+        finishStatAvg.textContent = `${avg}s`;
+
+        finishedModal.classList.add('show');
+      }
+
+      /* ============================================================
+         9. LISTENERS DE EVENTOS DA INTERFACE
+         ============================================================ */
+      btnMainAction.addEventListener('click', () => {
+        if (!timerState.isRunning || timerState.isPaused) {
+          startTimer();
+        } else {
+          pauseTimer();
+        }
+      });
+
+      btnReset.addEventListener('click', () => {
+        resetTimer();
+      });
+
+      btnFinishRestart.addEventListener('click', () => {
+        finishedModal.classList.remove('show');
+        resetTimer();
+      });
+
+      // Testar bip sonoro (ótimo para conferir o volume antes de começar)
+      btnTestAudio.addEventListener('click', () => {
+        getAudioContext();
+        playBipBip();
+        triggerHapticBip();
+        triggerVisualBipFlash();
+      });
+
+      /* ============================================================
+         10. CONFIGURAÇÕES E MODAL / DRAWER
+         ============================================================ */
+      function openSettingsDrawer() {
+        const m = Math.floor(config.totalSeconds / 60);
+        const s = config.totalSeconds % 60;
+        displayConfigMin.textContent = String(m).padStart(2, '0');
+        displayConfigSec.textContent = String(s).padStart(2, '0');
+
+        inputMinSec.value = config.minBipSec;
+        inputMaxSec.value = config.maxBipSec;
+        labelMinVal.textContent = `${config.minBipSec}s`;
+        labelMaxVal.textContent = `${config.maxBipSec}s`;
+
+        drawerSettings.classList.add('open');
+      }
+
+      function closeSettingsDrawer() {
+        drawerSettings.classList.remove('open');
+      }
+
+      btnOpenSettings.addEventListener('click', openSettingsDrawer);
+      btnQuickConfig.addEventListener('click', openSettingsDrawer);
+      btnCloseSettings.addEventListener('click', closeSettingsDrawer);
+
+      drawerSettings.addEventListener('click', (e) => {
+        if (e.target === drawerSettings) {
+          closeSettingsDrawer();
+        }
+      });
+
+      // Steppers de Minutos e Segundos
+      btnIncMin.addEventListener('click', () => {
+        let m = parseInt(displayConfigMin.textContent, 10) + 1;
+        if (m > 99) m = 99;
+        displayConfigMin.textContent = String(m).padStart(2, '0');
+      });
+
+      btnDecMin.addEventListener('click', () => {
+        let m = parseInt(displayConfigMin.textContent, 10) - 1;
+        if (m < 0) m = 0;
+        // Evita 00:00 se segundos for zero
+        if (m === 0 && parseInt(displayConfigSec.textContent, 10) < 10) {
+          displayConfigSec.textContent = '30';
+        }
+        displayConfigMin.textContent = String(m).padStart(2, '0');
+      });
+
+      btnIncSec.addEventListener('click', () => {
+        let s = parseInt(displayConfigSec.textContent, 10) + 10;
+        if (s >= 60) s = 0;
+        displayConfigSec.textContent = String(s).padStart(2, '0');
+      });
+
+      btnDecSec.addEventListener('click', () => {
+        let s = parseInt(displayConfigSec.textContent, 10) - 10;
+        if (s < 0) s = 50;
+        displayConfigSec.textContent = String(s).padStart(2, '0');
+      });
+
+      // Sliders Min / Max
+      inputMinSec.addEventListener('input', (e) => {
+        let minVal = parseInt(e.target.value, 10);
+        let maxVal = parseInt(inputMaxSec.value, 10);
+        if (minVal >= maxVal) {
+          maxVal = minVal + 2;
+          inputMaxSec.value = maxVal;
+          labelMaxVal.textContent = `${maxVal}s`;
+        }
+        labelMinVal.textContent = `${minVal}s`;
+      });
+
+      inputMaxSec.addEventListener('input', (e) => {
+        let maxVal = parseInt(e.target.value, 10);
+        let minVal = parseInt(inputMinSec.value, 10);
+        if (maxVal <= minVal) {
+          minVal = Math.max(2, maxVal - 2);
+          inputMinSec.value = minVal;
+          labelMinVal.textContent = `${minVal}s`;
+        }
+        labelMaxVal.textContent = `${maxVal}s`;
+      });
+
+      // Presets Rápidos
+      const presetChips = document.querySelectorAll('.preset-chip');
+      presetChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          presetChips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+
+          const tMin = chip.getAttribute('data-total-min');
+          const tSec = chip.getAttribute('data-total-sec');
+          const bMin = chip.getAttribute('data-min');
+          const bMax = chip.getAttribute('data-max');
+
+          displayConfigMin.textContent = String(tMin).padStart(2, '0');
+          displayConfigSec.textContent = String(tSec).padStart(2, '0');
+          inputMinSec.value = bMin;
+          inputMaxSec.value = bMax;
+          labelMinVal.textContent = `${bMin}s`;
+          labelMaxVal.textContent = `${bMax}s`;
+        });
+      });
+
+      // Salvar Configurações
+      btnApplySettings.addEventListener('click', () => {
+        const m = parseInt(displayConfigMin.textContent, 10) || 0;
+        const s = parseInt(displayConfigSec.textContent, 10) || 0;
+        const total = (m * 60) + s;
+
+        if (total < 10) {
+          displayConfigSec.textContent = '30';
+          return;
+        }
+
+        config.totalSeconds = total;
+        config.minBipSec = parseInt(inputMinSec.value, 10);
+        config.maxBipSec = parseInt(inputMaxSec.value, 10);
+
+        // Salvar no localStorage
+        try {
+          localStorage.setItem('bip_estocastico_cfg', JSON.stringify(config));
+        } catch (e) {}
+
+        resetTimer();
+        closeSettingsDrawer();
+      });
+
+      /* Inicialização */
+      updateTimerDisplay();
+
+    })();
+  </script>
+</body>
+</html>

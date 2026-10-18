@@ -1,0 +1,6 @@
+{
+  "name": "BipEstocastico - Temporizador de Treino",
+  "description": "Temporizador de treino esportivo mobile-first para Android com alertas sonoros e táteis estocásticos, sintetizador Web Audio API e Screen Wake Lock.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
